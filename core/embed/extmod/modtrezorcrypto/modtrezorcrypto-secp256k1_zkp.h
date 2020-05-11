@@ -18,6 +18,7 @@
  */
 
 #include "common.h"
+#include "py/gc.h"
 #include "py/objstr.h"
 
 #include "vendor/secp256k1-zkp/include/secp256k1.h"
@@ -64,8 +65,11 @@ STATIC mp_obj_t mod_trezorcrypto_secp256k1_context_make_new(
   const size_t secp256k1_ctx_size = secp256k1_context_preallocated_size(
       SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
 
-  mp_obj_secp256k1_context_t *o = m_new_obj_var_maybe(
-      mp_obj_secp256k1_context_t, uint8_t, secp256k1_ctx_size);
+  // there is no finaliser-enabled "m_new_obj_var_maybe" so we have to call
+  // gc_alloc directly and pass "true" as the finalizer flag
+  mp_obj_secp256k1_context_t *o = (mp_obj_secp256k1_context_t *)gc_alloc(
+      sizeof(mp_obj_secp256k1_context_t) + sizeof(uint8_t) * secp256k1_ctx_size,
+      true);
   if (!o) {
     mp_raise_ValueError("secp256k1_zkp context is too large");
   }
