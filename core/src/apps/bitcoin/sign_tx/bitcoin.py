@@ -15,6 +15,7 @@ from trezor.messages.TxRequestSerializedType import TxRequestSerializedType
 from trezor.utils import HashWriter, ensure
 
 from apps.common import coininfo, seed
+from apps.common.writers import write_bitcoin_varint
 
 from .. import addresses, multisig, scripts, writers
 from ..common import ecdsa_hash_pubkey, ecdsa_sign
@@ -138,7 +139,7 @@ class Bitcoin:
 
     async def step4_serialize_inputs(self) -> None:
         self.write_tx_header(self.serialized_tx, self.tx, bool(self.segwit))
-        writers.write_varint(self.serialized_tx, self.tx.inputs_count)
+        write_bitcoin_varint(self.serialized_tx, self.tx.inputs_count)
 
         for i in range(self.tx.inputs_count):
             progress.advance()
@@ -148,7 +149,7 @@ class Bitcoin:
                 await self.sign_nonsegwit_input(i)
 
     async def step5_serialize_outputs(self) -> None:
-        writers.write_varint(self.serialized_tx, self.tx.outputs_count)
+        write_bitcoin_varint(self.serialized_tx, self.tx.outputs_count)
         for i in range(self.tx.outputs_count):
             progress.advance()
             await self.serialize_output(i)
@@ -274,7 +275,7 @@ class Bitcoin:
         h_check = self.create_hash_writer()
 
         self.write_tx_header(h_sign, self.tx, witness_marker=False)
-        writers.write_varint(h_sign, self.tx.inputs_count)
+        write_bitcoin_varint(h_sign, self.tx.inputs_count)
 
         for i in range(self.tx.inputs_count):
             # STAGE_REQUEST_4_INPUT in legacy
@@ -306,7 +307,7 @@ class Bitcoin:
                 script_pubkey = bytes()
             self.write_tx_input(h_sign, txi, script_pubkey)
 
-        writers.write_varint(h_sign, self.tx.outputs_count)
+        write_bitcoin_varint(h_sign, self.tx.outputs_count)
 
         for i in range(self.tx.outputs_count):
             # STAGE_REQUEST_4_OUTPUT in legacy
@@ -352,14 +353,14 @@ class Bitcoin:
 
         # witnesses are not included in txid hash
         self.write_tx_header(txh, tx, witness_marker=False)
-        writers.write_varint(txh, tx.inputs_cnt)
+        write_bitcoin_varint(txh, tx.inputs_cnt)
 
         for i in range(tx.inputs_cnt):
             # STAGE_REQUEST_2_PREV_INPUT in legacy
             txi = await helpers.request_tx_input(self.tx_req, i, self.coin, prev_hash)
             self.write_tx_input(txh, txi, txi.script_sig)
 
-        writers.write_varint(txh, tx.outputs_cnt)
+        write_bitcoin_varint(txh, tx.outputs_cnt)
 
         for i in range(tx.outputs_cnt):
             # STAGE_REQUEST_2_PREV_OUTPUT in legacy
@@ -412,8 +413,8 @@ class Bitcoin:
     ) -> None:
         writers.write_uint32(w, tx.version)  # nVersion
         if witness_marker:
-            writers.write_varint(w, 0x00)  # segwit witness marker
-            writers.write_varint(w, 0x01)  # segwit witness flag
+            write_bitcoin_varint(w, 0x00)  # segwit witness marker
+            write_bitcoin_varint(w, 0x01)  # segwit witness flag
 
     def write_tx_footer(
         self, w: writers.Writer, tx: Union[SignTx, TransactionType]
